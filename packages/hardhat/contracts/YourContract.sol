@@ -1,87 +1,105 @@
-//SPDX-License-Identifier: MIT
-pragma solidity >=0.8.0 <0.9.0;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
 
-// Useful for debugging. Remove when deploying to a live network.
-import "hardhat/console.sol";
-
-// Use openzeppelin to inherit battle-tested implementations (ERC20, ERC721, etc)
-// import "@openzeppelin/contracts/access/Ownable.sol";
-
-/**
- * A smart contract that allows changing a state variable of the contract and tracking the changes
- * It also allows the owner to withdraw the Ether in the contract
- * @author BuidlGuidl
- */
 contract YourContract {
-	// State Variables
-	address public immutable owner;
-	string public greeting = "Building Unstoppable Apps!!!";
-	bool public premium = false;
-	uint256 public totalCounter = 0;
-	mapping(address => uint) public userGreetingCounter;
+    // Event definitions
+    event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
+    event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId);
 
-	// Events: a way to emit log statements from smart contract that can be listened to by external parties
-	event GreetingChange(
-		address indexed greetingSetter,
-		string newGreeting,
-		bool premium,
-		uint256 value
-	);
+    // Variables
+    string public name = "NonTransferableNFT";
+    string public symbol = "NTNFT";
 
-	// Constructor: Called once on contract deployment
-	// Check packages/hardhat/deploy/00_deploy_your_contract.ts
-	constructor(address _owner) {
-		owner = _owner;
-	}
+    uint256 public tokenCounter;
 
-	// Modifier: used to define a set of rules that must be met before or after a function is executed
-	// Check the withdraw() function
-	modifier isOwner() {
-		// msg.sender: predefined variable that represents address of the account that called the current function
-		require(msg.sender == owner, "Not the Owner");
-		_;
-	}
+    // Mapping from tokenId to owner
+    mapping(uint256 => address) private _owners;
 
-	/**
-	 * Function that allows anyone to change the state variable "greeting" of the contract and increase the counters
-	 *
-	 * @param _newGreeting (string memory) - new greeting to save on the contract
-	 */
-	function setGreeting(string memory _newGreeting) public payable {
-		// Print data to the hardhat chain console. Remove when deploying to a live network.
-		console.log(
-			"Setting new greeting '%s' from %s",
-			_newGreeting,
-			msg.sender
-		);
+    // Mapping owner address to token count
+    mapping(address => uint256) private _balances;
 
-		// Change state variables
-		greeting = _newGreeting;
-		totalCounter += 1;
-		userGreetingCounter[msg.sender] += 1;
+    // Mapping from tokenId to approved address (not used but kept for compatibility)
+    mapping(uint256 => address) private _tokenApprovals;
 
-		// msg.value: built-in global variable that represents the amount of ether sent with the transaction
-		if (msg.value > 0) {
-			premium = true;
-		} else {
-			premium = false;
-		}
+    // Constructor
+    constructor() {
+        tokenCounter = 0;
+    }
 
-		// emit: keyword used to trigger an event
-		emit GreetingChange(msg.sender, _newGreeting, msg.value > 0, msg.value);
-	}
+    // Mint function, anyone can call
+    function mint() public {
+        uint256 tokenId = tokenCounter;
+        _owners[tokenId] = msg.sender;
+        _balances[msg.sender] += 1;
+        tokenCounter += 1;
 
-	/**
-	 * Function that allows the owner to withdraw all the Ether in the contract
-	 * The function can only be called by the owner of the contract as defined by the isOwner modifier
-	 */
-	function withdraw() public isOwner {
-		(bool success, ) = owner.call{ value: address(this).balance }("");
-		require(success, "Failed to send Ether");
-	}
+        emit Transfer(address(0), msg.sender, tokenId);
+    }
 
-	/**
-	 * Function that allows the contract to receive ETH
-	 */
-	receive() external payable {}
+    // Function to query the owner of a token
+    function ownerOf(uint256 tokenId) public view returns (address) {
+        address owner = _owners[tokenId];
+        require(owner != address(0), "Token does not exist");
+        return owner;
+    }
+
+    // Function to query the balance of an address
+    function balanceOf(address owner) public view returns (uint256) {
+        require(owner != address(0), "Address cannot be zero");
+        return _balances[owner];
+    }
+
+    // Disable transfer functions
+    function transferFrom(address, address, uint256) public pure {
+        revert("This NFT is non-transferable");
+    }
+
+    function safeTransferFrom(address, address, uint256) public pure {
+        revert("This NFT is non-transferable");
+    }
+
+    function safeTransferFrom(address, address, uint256, bytes memory) public pure {
+        revert("This NFT is non-transferable");
+    }
+
+    // Disable approval functions
+    function approve(address, uint256) public pure {
+        revert("Approval is not allowed");
+    }
+
+    function setApprovalForAll(address, bool) public pure {
+        revert("Approval is not allowed");
+    }
+
+    function getApproved(uint256) public pure returns (address) {
+        return address(0);
+    }
+
+    function isApprovedForAll(address, address) public pure returns (bool) {
+        return false;
+    }
+
+    // Burn function
+    function burn(uint256 tokenId) public {
+        address owner = ownerOf(tokenId);
+        require(msg.sender == owner, "You are not the owner of this NFT");
+
+        // Clear ownership and balance
+        _balances[owner] -= 1;
+        delete _owners[tokenId];
+
+        emit Transfer(owner, address(0), tokenId);
+    }
+
+    // ERC165 interface support
+    function supportsInterface(bytes4 interfaceId) public pure returns (bool) {
+        return
+            interfaceId == 0x80ac58cd || // ERC721 interface ID
+            interfaceId == 0x5b5e139f;   // ERC721Metadata interface ID
+    }
+
+    // Metadata function
+    function tokenURI(uint256) public pure returns (string memory) {
+        return "";
+    }
 }
